@@ -3,19 +3,20 @@ import joblib
 import pandas as pd
 import os
 
-# Load model
+# Load trained model (no retraining)
 model = joblib.load("diabetes_model_gbr.pkl")
 
 st.title("Diabetes Progression Predictor")
 
-st.markdown(
-    """
-    **Note:** Inputs are *standardized values* (same scale used during model training).
-    """
-)
+st.markdown("""
+⚠️ **Model Note**
 
-# Feature ranges from df.describe()
-ranges = {
+This model was trained on the **standardized Diabetes dataset from scikit-learn**.
+Inputs below are **z-score–normalized clinical features**, not raw medical values.
+""")
+
+# Feature ranges taken from training data (df.describe)
+features = {
     "age": (-0.11, 0.11),
     "sex": (-0.045, 0.051),
     "bmi": (-0.09, 0.17),
@@ -29,30 +30,37 @@ ranges = {
 }
 
 inputs = {}
-for feature, (min_val, max_val) in ranges.items():
-    inputs[feature] = st.slider(
-        f"{feature.upper()} (scaled)",
-        min_value=float(min_val),
-        max_value=float(max_val),
-        value=0.0,
-        step=0.001,
+
+st.subheader("Standardized Feature Inputs")
+
+for name, (min_val, max_val) in features.items():
+    inputs[name] = st.slider(
+        f"{name.upper()} (standardized)",
+        float(min_val),
+        float(max_val),
+        0.0,
+        step=0.001
     )
 
-# Create input DataFrame
 input_df = pd.DataFrame([inputs])
 
 prediction = None
 
-if st.button("Predict"):
+if st.button("Predict Progression"):
     prediction = model.predict(input_df)[0]
     prediction = max(0, prediction)
-    st.success(f"Predicted Diabetes Progression: **{prediction:.2f}**")
 
-# Save prediction safely
+    st.success(f"Predicted Diabetes Progression Score: **{prediction:.2f}**")
+
+    st.caption(
+        "Prediction represents disease progression one year after baseline, "
+        "as defined in the original diabetes dataset."
+    )
+
 if st.button("Save Prediction") and prediction is not None:
     log = input_df.copy()
     log["prediction"] = prediction
 
     log_file = "predictions.csv"
     log.to_csv(log_file, mode="a", index=False, header=not os.path.exists(log_file))
-    st.write("Prediction saved!")
+    st.info("Prediction saved locally.")
